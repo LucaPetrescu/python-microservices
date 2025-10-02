@@ -1,7 +1,7 @@
 import jwt, datetime, os
 
 from flask import request, Flask
-from flas_mysqldb import MySQL
+from flask_mysqldb import MySQL
 
 from dotenv import load_dotenv, find_dotenv
 dotenv_path = find_dotenv()
@@ -16,6 +16,9 @@ SQL_PORT = os.getenv('SQL_PORT')
 JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY')
 JWT_ALGORITHM = os.getenv('JWT_ALGORITHM')
 JWT_EXPIRATION_HOURS = os.getenv('JWT_EXPIRATION_HOURS')
+
+HOST = os.getenv('HOST')
+PORT = os.getenv('PORT')
 
 server = Flask(__name__)
 mysql = MySQL(server)
@@ -40,3 +43,30 @@ def login():
             return createJWT(auth.username, JWT_SECRET_KEY, JWT_ALGORITHM, JWT_EXPIRATION_HOURS)
     else:
         return "Invalid credentials", 401
+
+@server.route("/validate", methods=["POST"])
+def validate():
+    token = request.headers.get("Authorization")
+
+    if not token:
+        return "Missing credentials", 401
+    
+    try:
+        token = token.split(" ")[1]
+        decoded_token = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        return decoded_token, 200
+    except:
+        return "Invalid credentials", 401
+
+def createJWT(username, secret, authz):
+    return jwt.encode({
+        "username": username, 
+        "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1), 
+        "iat": datetime.datetime.utcnow(), 
+        "admin": authz
+        }, 
+        secret, 
+        algorithm=JWT_ALGORITHM)
+
+if __name__ == "__main__":
+    server.run(host=HOST, port=PORT)
